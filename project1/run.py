@@ -1,0 +1,80 @@
+#coding:utf8
+import numpy as np
+from sklearn.preprocessing import scale
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torch import nn
+from model import BpNet
+import matplotlib.pyplot as plt
+
+
+class MyDataset(Dataset):
+    def __init__(self, file) -> None:
+        self.data = np.loadtxt(file, dtype=np.float32)
+        # standardization by column
+        self.x = scale(self.data[:, :5])
+        self.y = scale(self.data[:, 5])
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
+def main(n_epochs, learning_rate, net_size, plot_loss=False):
+    # Check if GPU is available
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
+    # Load data
+    dataset1 = MyDataset(file='./project1/training.txt')
+    dataset2 = MyDataset(file='./project1/test.txt')
+    training_set = DataLoader(dataset1, dataset1.__len__(), shuffle=True)
+    test_set = DataLoader(dataset2, dataset2.__len__(), shuffle=False)
+
+    # Define network, loss function, optimizer
+    bp_net = BpNet(net_size).to(device)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(bp_net.parameters(), lr=learning_rate)
+
+    avg_tr_loss, avg_tt_loss = [], []
+    for epoch in range(n_epochs):
+        # Training
+        bp_net.train()
+        total_tr_loss = 0
+        for x, y in training_set:
+            optimizer.zero_grad()
+            x, y = x.to(device), y.to(device)
+            pred = bp_net(x)
+            tr_loss = criterion(pred, y)
+            tr_loss.backward()
+            optimizer.step()
+            total_tr_loss += tr_loss.item()
+
+        # Validation
+        bp_net.eval()
+        total_tt_loss = 0
+        for x, y in test_set:
+            x, y = x.to(device), y.to(device)
+            with torch.no_grad():  # disable gradient calculation
+                pred = bp_net(x)
+                tt_loss = criterion(pred, y)
+            total_tt_loss += tt_loss.item() * len(x)
+
+        print('epoch: {} test loss: {:.4f}'.format(epoch, tt_loss))
+        avg_tr_loss.append(total_tr_loss / len(test_set.dataset))
+        avg_tt_loss.append(total_tt_loss / len(test_set.dataset))
+
+    if plot_loss:
+        fig = plt.figure(dpi=150, figsize=(8, 4))
+        f1 = fig.add_subplot(121)
+        f1.plot(np.arange(len(avg_tr_loss)), avg_tr_loss)
+        f1.set_title('training loss')
+        f2 = fig.add_subplot(122)
+        f2.plot(np.arange(len(avg_tt_loss)), avg_tt_loss)
+        f2.set_title('test loss')
+        plt.show()
+
+
+if __name__ == '__main__':
+    main(1000, 0.01, (5, 5, 12, 1), plot_loss=True)
