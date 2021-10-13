@@ -121,4 +121,4 @@ def run_net(n_epochs, learning_rate, net_size, plot_loss=False):
 
 
 if __name__ == '__main__':
-    run_net(1000, 0.01, (5, 5, 12, 1), plot_loss=True)
+    # run_net(1000, 0.01, (5, 5, 12, 1), plot_loss=True)
