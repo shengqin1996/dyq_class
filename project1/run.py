@@ -1,4 +1,10 @@
 #coding:utf8
+'''
+This is a small network to do a regression work in training.txt and test.txt
+Four network class were put into model.py
+Remember the net_size param controls the choice of target y as well.
+You can freely predict all last 5 params in 1 net by using MyDataset3
+'''
 import numpy as np
 from sklearn.preprocessing import scale
 import torch
@@ -8,7 +14,7 @@ from model import BpNet
 import matplotlib.pyplot as plt
 
 
-class MyDataset(Dataset):
+class MyDataset1(Dataset):  # predict G_f
     def __init__(self, file) -> None:
         self.data = np.loadtxt(file, dtype=np.float32)
         # standardization by column
@@ -22,13 +28,51 @@ class MyDataset(Dataset):
         return self.data.shape[0]
 
 
-def main(n_epochs, learning_rate, net_size, plot_loss=False):
+class MyDataset2(Dataset):  # predict last 4 params
+    def __init__(self, file) -> None:
+        self.data = np.loadtxt(file, dtype=np.float32)
+        # standardization by column
+        self.x = scale(self.data[:, :5])
+        self.y = scale(self.data[:, 6:])
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
+class MyDataset3(Dataset):  # predict all 5 params in one model
+    def __init__(self, file) -> None:
+        self.data = np.loadtxt(file, dtype=np.float32)
+        # standardization by column
+        self.x = scale(self.data[:, :5])
+        self.y = scale(self.data[:, 5:])
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
+def run_net(n_epochs, learning_rate, net_size, plot_loss=False):
     # Check if GPU is available
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-    # Load data
-    dataset1 = MyDataset(file='./project1/training.txt')
-    dataset2 = MyDataset(file='./project1/test.txt')
+    # Load data w.r.t net_size
+    if net_size[-1] == 1:
+        dataset1 = MyDataset1(file='./project1/training.txt')
+        dataset2 = MyDataset1(file='./project1/test.txt')
+    elif net_size[-1] == 4:
+        dataset1 = MyDataset2(file='./project1/training.txt')
+        dataset2 = MyDataset2(file='./project1/test.txt')
+    elif net_size[-1] == 5:
+        dataset1 = MyDataset3(file='./project1/training.txt')
+        dataset2 = MyDataset3(file='./project1/test.txt')
+    else:
+        print('output wrong size!')
+        return
     training_set = DataLoader(dataset1, dataset1.__len__(), shuffle=True)
     test_set = DataLoader(dataset2, dataset2.__len__(), shuffle=False)
 
@@ -77,4 +121,4 @@ def main(n_epochs, learning_rate, net_size, plot_loss=False):
 
 
 if __name__ == '__main__':
-    main(1000, 0.01, (5, 5, 12, 1), plot_loss=True)
+    run_net(1000, 0.01, (5, 5, 12, 1), plot_loss=True)
